@@ -1,11 +1,36 @@
 from __future__ import absolute_import, print_function
 
+import os
+import shutil
+import signal
 import sys
 import traceback
 
 import click
 
 from . import __version__
+from .config import load_config
+from .core import start_daemon, Client, get_output_dir
+
+
+def parse_settings(settings):
+    """Convert a list of ("key=val", ...) settings into a dict"""
+    out = {}
+    for s in settings:
+        try:
+            k, v = s.split('=')
+        except:
+            raise ValueError("Unable to parse setting: %r" % s)
+        out[k.strip()] = v.strip()
+    return out
+
+
+def check_pid(pid):
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
 
 
 @click.group()
@@ -18,26 +43,59 @@ def cli():
 @click.option("--name",
               "-n",
               "name",
-              required=True,
+              required=False,
               help="Cluster name")
+@click.option("--prefix",
+              "-p",
+              "prefix",
+              type=click.Path(),
+              required=False,
+              help=("Prefix to output folder. Defaults to "
+                    "``~/.dask/yarn/clusters/$name``"))
 @click.option("--config",
               "-c",
               "config",
-              required=True,
+              required=False,
               type=click.Path(),
               help="Path to configuration file")
-@click.option("--output",
-              "-o",
-              "output",
-              type=click.Path(),
+@click.option("--settings",
+              "-s",
+              "settings",
               required=False,
-              help=("Path to output yaml file. Defaults to "
-                    "``~/.dask/yarn/clusters/($name).yaml``"))
-def start(name, config, output):
+              multiple=True,
+              help="Additional key-value pairs to override")
+def start(name, prefix, config, settings):
     """Start a dask cluster"""
-    click.echo(name)
-    click.echo(config)
-    click.echo(output)
+    """
+    - Start daemon on random port
+    - Write output file
+    - Check and log daemon status
+    """
+    settings = parse_settings(settings)
+    config = load_config(config, **settings)
+
+    output_dir = get_output_dir(name=name, prefix=prefix)
+    if os.path.exists(output_dir):
+        raise ValueError("Cluster output path already exists")
+    os.mkdir(output_dir)
+
+    pid = start_daemon(output_dir)
+
+    try:
+        client = Client(output_dir)
+    except Exception:
+        if check_pid(pid):
+            os.kill(pid, signal.SIGINT)
+        raise
+
+    click.echo("Starting daemon at pid %d..." % pid)
+    if client.start(config):
+        click.echo("OK")
+        status = 0
+    else:
+        click.echo("Failed to start daemon")
+        status = 1
+    sys.exit(status)
 
 
 @cli.command()
@@ -46,16 +104,25 @@ def start(name, config, output):
               "name",
               required=False,
               help="Cluster name")
-@click.option("--file",
-              "-f",
-              "file",
+@click.option("--prefix",
+              "-p",
+              "prefix",
               required=False,
               type=click.Path(),
-              help="Filepath to the cluster output yaml file.")
-def stop(name, file):
+              help="Prefix to output folder.")
+def stop(name, prefix):
     """Stop a dask cluster"""
-    click.echo(name)
-    click.echo(file)
+    output_dir = get_output_dir(name=name, prefix=prefix)
+    client = Client(output_dir)
+    click.echo("Shutting down daemon...")
+    if client.shutdown():
+        shutil.rmtree(output_dir)
+        click.echo("OK")
+        status = 0
+    else:
+        click.echo("Shutdown Failed")
+        status = 1
+    sys.exit(status)
 
 
 @cli.command()
@@ -74,6 +141,9 @@ def info(name, file):
     """Information about running dask clusters"""
     click.echo(name)
     click.echo(file)
+    """
+    - If no name and file, iter through all clusters in ~/.dask, return status
+    """
 
 
 _py3_err_msg = """
