@@ -45,7 +45,7 @@ def cli():
               multiple=True,
               help="Additional key-value pairs to override")
 def start(name, prefix, config, settings):
-    """Start a dask cluster"""
+    """Start a dask cluster."""
     settings = parse_settings(settings)
     config = load_config(config, **settings)
     check_config(config)
@@ -100,7 +100,7 @@ def start(name, prefix, config, settings):
               type=click.Path(),
               help="Prefix to output folder.")
 def stop(name, prefix):
-    """Stop a dask cluster"""
+    """Stop a dask cluster."""
     output_dir = get_output_dir(name=name, prefix=prefix)
     client = Client(output_dir)
     click.echo("Shutting down daemon...")
@@ -127,10 +127,10 @@ def stop(name, prefix):
               type=click.Path(),
               help="Prefix to output folder.")
 def info(name, prefix):
-    """Information about running dask clusters
+    """Information about running dask clusters.
 
     If neither name or prefix are provided, returns information about all
-    clusters running in `./dask/yarn/clusters`.
+    clusters running in `~/.dask/yarn/clusters`.
     """
     if name is None and prefix is None:
         dot_dir = os.path.join(os.path.expanduser('~'), '.dask',
