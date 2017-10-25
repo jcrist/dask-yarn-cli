@@ -10,27 +10,8 @@ import click
 
 from . import __version__
 from .config import load_config
-from .core import start_daemon, Client, get_output_dir
-
-
-def parse_settings(settings):
-    """Convert a list of ("key=val", ...) settings into a dict"""
-    out = {}
-    for s in settings:
-        try:
-            k, v = s.split('=')
-        except:
-            raise ValueError("Unable to parse setting: %r" % s)
-        out[k.strip()] = v.strip()
-    return out
-
-
-def check_pid(pid):
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+from .core import start_daemon, Client
+from .utils import asciitable, parse_settings, check_pid, get_output_dir
 
 
 @click.group()
@@ -131,19 +112,40 @@ def stop(name, prefix):
               "name",
               required=False,
               help="Cluster name")
-@click.option("--file",
-              "-f",
-              "file",
+@click.option("--prefix",
+              "-p",
+              "prefix",
               required=False,
               type=click.Path(),
-              help="Filepath to the cluster output yaml file.")
-def info(name, file):
-    """Information about running dask clusters"""
-    click.echo(name)
-    click.echo(file)
+              help="Prefix to output folder.")
+def info(name, prefix):
+    """Information about running dask clusters
+
+    If neither name or prefix are provided, returns information about all
+    clusters running in `./dask/yarn/clusters`.
     """
-    - If no name and file, iter through all clusters in ~/.dask, return status
-    """
+    if name is None and prefix is None:
+        dot_dir = os.path.join(os.path.expanduser('~'), '.dask',
+                               'yarn', 'clusters')
+        clusters = [os.path.join(dot_dir, d) for d in os.listdir(dot_dir)]
+    else:
+        output_dir = get_output_dir(name=name, prefix=prefix)
+        if not os.path.exists(output_dir):
+            raise ValueError("Cluster folder not found at %r" % output_dir)
+        clusters = [output_dir]
+
+    if clusters:
+        # TODO: actually get address, app_id
+        address = 'tcp://foo.bar:8020'
+        app_id = 'application_12345_12'
+        data = []
+        for c in clusters:
+            data.append((os.path.basename(c.strip('/')), address, app_id))
+
+        msg = asciitable(['cluster', 'scheduler', 'app_id'], data)
+    else:
+        msg = 'No active clusters found.'
+    click.echo(msg)
 
 
 _py3_err_msg = """

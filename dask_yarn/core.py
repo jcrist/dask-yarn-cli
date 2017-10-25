@@ -10,37 +10,6 @@ import time
 from .config import dump_config
 
 
-PY2 = sys.version_info.major == 2
-
-
-def get_output_dir(name=None, prefix=None):
-    if name and prefix:
-        raise ValueError("Cannot specify both ``name`` and ``prefix``")
-    elif prefix:
-        output_dir = prefix
-    else:
-        dot_dir = os.path.join(os.path.expanduser('~'), '.dask',
-                               'yarn', 'clusters')
-        makedirs(dot_dir, exist_ok=True)
-        output_dir = os.path.join(dot_dir, name)
-
-    return output_dir
-
-
-def makedirs(d, exist_ok=False):
-    if PY2:
-        try:
-            os.makedirs(d)
-        except OSError as e:
-            if e.args[0] == 17 and exist_ok:
-                # 'File exists'
-                return
-            else:
-                raise
-    else:
-        os.makedirs(d, exist_ok=exist_ok)
-
-
 def _daemon(cache_dir):
     sys.exit(Server(cache_dir).run_until_shutdown())
 
