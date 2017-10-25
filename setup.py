@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='dask-yarn',
       version='0.0.1',
       license='BSD',
-      install_requires=['click'],
+      install_requires=['click', 'distributed', 'knit'],
       packages=['dask_yarn'],
       entry_points='''
         [console_scripts]
