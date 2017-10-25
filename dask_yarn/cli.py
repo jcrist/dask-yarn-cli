@@ -1,7 +1,6 @@
 from __future__ import absolute_import, print_function
 
 import os
-import shutil
 import signal
 import sys
 import traceback
@@ -9,7 +8,7 @@ import traceback
 import click
 
 from . import __version__
-from .config import load_config
+from .config import load_config, check_config
 from .core import start_daemon, Client
 from .utils import asciitable, parse_settings, check_pid, get_output_dir
 
@@ -49,6 +48,7 @@ def start(name, prefix, config, settings):
     """Start a dask cluster"""
     settings = parse_settings(settings)
     config = load_config(config, **settings)
+    check_config(config)
 
     output_dir = get_output_dir(name=name, prefix=prefix)
     if os.path.exists(output_dir):
@@ -66,7 +66,14 @@ def start(name, prefix, config, settings):
     click.echo("Starting daemon at pid %d..." % pid)
     resp = client.start(config)
     if resp['status'] == 'ok':
-        click.echo("OK")
+        msg = ("Scheduler:       tcp://{ip}:{port:d}\n"
+               "Bokeh:           tcp://{ip}:{bokeh:d}\n"
+               "Application ID:  {id}").format(
+                    ip=resp['scheduler.ip'],
+                    port=resp['scheduler.port'],
+                    bokeh=resp['scheduler.bokeh_port'],
+                    id=resp['application.id'])
+        click.echo(msg)
         status = 0
     else:
         exc = resp['exception']
@@ -136,14 +143,18 @@ def info(name, prefix):
         clusters = [output_dir]
 
     if clusters:
-        # TODO: actually get address, app_id
-        address = 'tcp://foo.bar:8020'
-        app_id = 'application_12345_12'
         data = []
         for c in clusters:
-            data.append((os.path.basename(c.strip('/')), address, app_id))
+            config = load_config(os.path.join(c, 'config.yaml'))
+            ip = config['scheduler.ip']
+            data.append((os.path.basename(c.strip('/')),
+                         'tcp://%s:%d' % (ip, config['scheduler.port']),
+                         'tcp://%s:%d' % (ip, config['scheduler.bokeh_port']),
+                         config['application.id'],
+                         config['application.pid']))
 
-        msg = asciitable(['cluster', 'scheduler', 'app_id'], data)
+        msg = asciitable(['cluster', 'scheduler', 'diagnostics',
+                          'application id', 'daemon pid'], data)
     else:
         msg = 'No active clusters found.'
     click.echo(msg)

@@ -5,7 +5,7 @@ import os
 import yaml
 
 
-__all__ = ('load_config', 'dump_config')
+__all__ = ('load_config', 'check_config', 'dump_config')
 
 
 _defaults = {'scheduler.port': 0,
@@ -57,8 +57,6 @@ def load_config(config_path=None, **settings):
         config.update(flatten_mapping(mapping))
 
     config.update(settings)
-
-    check_config(config)
 
     return config
 

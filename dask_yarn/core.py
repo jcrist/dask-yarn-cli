@@ -23,7 +23,7 @@ from .config import dump_config
 class Scheduler(object):
     def __init__(self):
         self.ip = 'ip'
-        self.port = 'port'
+        self.port = 8080
         self.address = 'address'
 
 
@@ -39,7 +39,7 @@ class Knit(object):
         self.hdfs_home = 'hdfs_home'
 
     def start(self, *args, **kwargs):
-        pass
+        return 'application_12345'
 
 
 def _daemon(cache_dir):
@@ -129,7 +129,11 @@ class Server(object):
         self.cluster = cluster
         self.knit = k
         dump_config(config2, self.config_path)
-        return {'status': 'ok'}
+        return {'status': 'ok',
+                'application.id': config2['application.id'],
+                'scheduler.ip': config2['scheduler.ip'],
+                'scheduler.port': config2['scheduler.port'],
+                'scheduler.bokeh_port': config2['scheduler.bokeh_port']}
 
 
 def setup_cluster(config):
@@ -169,8 +173,9 @@ def setup_cluster(config):
                         queue=config['yarn.queue'],
                         checks=False)
 
+    # Add a few missing fields to config before writing to disk
     config2 = config.copy()
-    # The ip is optional, and the port may be chosen dynamically
+    # The ip is optional, the port may be chosen dynamically
     config2['scheduler.ip'] = cluster.scheduler.ip
     config2['scheduler.port'] = cluster.scheduler.port
     # Fill in optional parameters with auto-detected versions
