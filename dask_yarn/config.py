@@ -8,9 +8,8 @@ import yaml
 __all__ = ('load_config', 'dump_config')
 
 
-_defaults = {'scheduler.tcp_port': 8786,
+_defaults = {'scheduler.port': 0,
              'scheduler.bokeh_port': 8787,
-             'scheduler.http_port': 9786,
              'worker.cpus': 2,
              'worker.memory': 2048,
              'worker.processes': 1,
@@ -20,7 +19,8 @@ _defaults = {'scheduler.tcp_port': 8786,
 
 _mandatory = {'cluster.env'}
 
-_optional = {'yarn.host',
+_optional = {'scheduler.ip',
+             'yarn.host',
              'yarn.port',
              'hdfs.host',
              'hdfs.port',

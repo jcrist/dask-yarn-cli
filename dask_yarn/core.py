@@ -1,13 +1,45 @@
 from __future__ import absolute_import, print_function
 
+import atexit
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
 import time
+import traceback
+
+# from knit import Knit
+# from distributed import LocalCluster
+try:
+    import hdfs3
+except ImportError:
+    hdfs3 = None
 
 from .config import dump_config
+
+
+class Scheduler(object):
+    def __init__(self):
+        self.ip = 'ip'
+        self.port = 'port'
+        self.address = 'address'
+
+
+class LocalCluster(object):
+    def __init__(self, *args, **kwargs):
+        self.scheduler = Scheduler()
+
+
+class Knit(object):
+    def __init__(self, *args, **kwargs):
+        self.conf = {'rm': 'address',
+                     'rm_port': 'address2'}
+        self.hdfs_home = 'hdfs_home'
+
+    def start(self, *args, **kwargs):
+        pass
 
 
 def _daemon(cache_dir):
@@ -32,11 +64,16 @@ class Server(object):
         self.cache_path = cache_path
         self.address = os.path.join(self.cache_path, 'comm')
         self.config_path = os.path.join(self.cache_path, 'config.yaml')
+        self.cluster = None
+        self.knit = None
         self._should_shutdown = False
 
     def run_until_shutdown(self):
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        os.mkdir(self.cache_path)
+        atexit.register(shutil.rmtree, self.cache_path)
 
         listener.bind(self.address)
 
@@ -59,7 +96,7 @@ class Server(object):
             op = 'badmsg'
 
         resp = getattr(self, 'handle_%s' % op, self.handle_badmsg)(msg)
-        conn.sendall(bytes(resp + '\n', 'utf-8'))
+        conn.sendall(bytes(json.dumps(resp) + '\n', 'utf-8'))
         # Close the connection
         try:
             conn.shutdown(socket.SHUT_WR)
@@ -68,16 +105,83 @@ class Server(object):
         conn.close()
 
     def handle_badmsg(self, msg):
-        return '{"status": "error"}'
+        return {"status": "error"}
 
     def handle_shutdown(self, msg):
         self._should_shutdown = True
-        return '{"status": "ok"}'
+        return {"status": "ok"}
 
     def handle_start(self, msg):
         config = msg['config']
-        dump_config(config, self.config_path)
-        return '{"status": "ok"}'
+        try:
+            cluster, k, config2 = setup_cluster(config)
+        except Exception as e:
+            _, _, tb = sys.exc_info()
+            exc_msg = str(e)
+            tb_msg = ''.join(traceback.format_tb(tb))
+            resp = {'status': 'error',
+                    'exception': exc_msg,
+                    'traceback': tb_msg}
+            # Failed to start, shutdown
+            self._should_shutdown = True
+            return resp
+
+        self.cluster = cluster
+        self.knit = k
+        dump_config(config2, self.config_path)
+        return {'status': 'ok'}
+
+
+def setup_cluster(config):
+    cluster = LocalCluster(n_workers=0,
+                           ip=config.get('scheduler.ip'),
+                           port=config['scheduler.port'],
+                           diagnostics_port=config['scheduler.bokeh_port'])
+
+    if hdfs3 is not None:
+        hdfs = hdfs3.HDFileSystem(host=config.get('hdfs.host'),
+                                  port=config.get('hdfs.port'))
+    else:
+        hdfs = None
+
+    knit = Knit(hdfs=hdfs,
+                hdfs_home=config.get('hdfs.home'),
+                rm=config.get('yarn.host'),
+                rm_port=config.get('yarn.port'))
+
+    command = ('$PYTHON_BIN $CONDA_PREFIX/bin/dask-worker '
+               '--nprocs={nprocs:d} '
+               '--nthreads={nthreads:d} '
+               '--memory-limit={memory_limit:d} '
+               '{scheduler_address} '
+               '> /tmp/worker-log.out '
+               '2> /tmp/worker-log.err').format(
+                    nprocs=config['worker.processes'],
+                    nthreads=config['worker.threads_per_process'],
+                    memory_limit=int(config['worker.memory'] * 1e6),
+                    scheduler_address=cluster.scheduler.address)
+
+    app_id = knit.start(command,
+                        env=config['cluster.env'],
+                        num_containers=config['cluster.count'],
+                        virtual_cores=config['worker.cpus'],
+                        memory=config['worker.memory'],
+                        queue=config['yarn.queue'],
+                        checks=False)
+
+    config2 = config.copy()
+    # The ip is optional, and the port may be chosen dynamically
+    config2['scheduler.ip'] = cluster.scheduler.ip
+    config2['scheduler.port'] = cluster.scheduler.port
+    # Fill in optional parameters with auto-detected versions
+    config2['yarn.host'] = knit.conf['rm']
+    config2['yarn.port'] = knit.conf['rm_port']
+    config2['hdfs.home'] = knit.hdfs_home
+    # Add in runtime information like app_id and daemon pid
+    config2['application.id'] = app_id
+    config2['application.pid'] = os.getpid()
+
+    return cluster, knit, config2
 
 
 class Client(object):
@@ -104,10 +208,8 @@ class Client(object):
 
     def shutdown(self):
         self._sendmsg({"op": "shutdown"})
-        resp = self._recvmsg()
-        return resp['status'] == 'ok'
+        return self._recvmsg()
 
     def start(self, config):
         self._sendmsg({'op': 'start', 'config': config})
-        resp = self._recvmsg()
-        return resp['status'] == 'ok'
+        return self._recvmsg()

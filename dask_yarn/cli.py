@@ -47,18 +47,12 @@ def cli():
               help="Additional key-value pairs to override")
 def start(name, prefix, config, settings):
     """Start a dask cluster"""
-    """
-    - Start daemon on random port
-    - Write output file
-    - Check and log daemon status
-    """
     settings = parse_settings(settings)
     config = load_config(config, **settings)
 
     output_dir = get_output_dir(name=name, prefix=prefix)
     if os.path.exists(output_dir):
         raise ValueError("Cluster output path already exists")
-    os.mkdir(output_dir)
 
     pid = start_daemon(output_dir)
 
@@ -70,11 +64,18 @@ def start(name, prefix, config, settings):
         raise
 
     click.echo("Starting daemon at pid %d..." % pid)
-    if client.start(config):
+    resp = client.start(config)
+    if resp['status'] == 'ok':
         click.echo("OK")
         status = 0
     else:
-        click.echo("Failed to start daemon")
+        exc = resp['exception']
+        tb = resp['traceback']
+        msg = ("Failed to start cluster:\n\n"
+               "%s\n"
+               "%s\n"
+               "%s") % (exc, '-'*len(exc), tb)
+        click.echo(msg)
         status = 1
     sys.exit(status)
 
@@ -96,8 +97,8 @@ def stop(name, prefix):
     output_dir = get_output_dir(name=name, prefix=prefix)
     client = Client(output_dir)
     click.echo("Shutting down daemon...")
-    if client.shutdown():
-        shutil.rmtree(output_dir)
+    resp = client.shutdown()
+    if resp['status'] == 'ok':
         click.echo("OK")
         status = 0
     else:
