@@ -10,36 +10,14 @@ import sys
 import time
 import traceback
 
-# from knit import Knit
-# from distributed import LocalCluster
+from knit import Knit
+from distributed import LocalCluster
 try:
     import hdfs3
 except ImportError:
     hdfs3 = None
 
 from .config import dump_config
-
-
-class Scheduler(object):
-    def __init__(self):
-        self.ip = 'ip'
-        self.port = 8080
-        self.address = 'address'
-
-
-class LocalCluster(object):
-    def __init__(self, *args, **kwargs):
-        self.scheduler = Scheduler()
-
-
-class Knit(object):
-    def __init__(self, *args, **kwargs):
-        self.conf = {'rm': 'address',
-                     'rm_port': 'address2'}
-        self.hdfs_home = 'hdfs_home'
-
-    def start(self, *args, **kwargs):
-        return 'application_12345'
 
 
 def _daemon(cache_dir):
@@ -190,7 +168,7 @@ def setup_cluster(config):
 
 
 class Client(object):
-    def __init__(self, cache_path, retries=5):
+    def __init__(self, cache_path, retries=20):
         self.address = os.path.join(cache_path, 'comm')
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         for _ in range(retries):
