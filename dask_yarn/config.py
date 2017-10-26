@@ -4,6 +4,8 @@ import os
 
 import yaml
 
+from .utils import DaskYarnError
+
 
 __all__ = ('load_config', 'check_config', 'dump_config')
 
@@ -36,12 +38,13 @@ def _format_list(vals):
 def check_config(config):
     extra = set(config).difference(_all_fields)
     if extra:
-        raise ValueError("Extra configuration fields:\n" + _format_list(extra))
+        raise DaskYarnError("Extra configuration fields:\n"
+                            "%s" % _format_list(extra))
 
     missing = _mandatory.difference(config)
     if missing:
-        raise ValueError("Missing configuration fields:\n" +
-                         _format_list(missing))
+        raise DaskYarnError("Missing configuration fields:\n"
+                            "%s" % _format_list(missing))
 
 
 def load_config(config_path=None, **settings):
@@ -50,8 +53,8 @@ def load_config(config_path=None, **settings):
 
     if config_path is not None:
         if not os.path.exists(config_path):
-            raise ValueError("Configuration file not found at "
-                             "%r" % config_path)
+            raise DaskYarnError("Configuration file not found at "
+                                "%r" % config_path)
         with open(config_path) as fil:
             mapping = yaml.load(fil)
         config.update(flatten_mapping(mapping))

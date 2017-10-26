@@ -10,7 +10,8 @@ import click
 from . import __version__
 from .config import load_config, check_config
 from .core import start_daemon, Client
-from .utils import asciitable, parse_settings, check_pid, get_output_dir
+from .utils import (asciitable, parse_settings, check_pid, get_output_dir,
+                    DaskYarnError)
 
 
 @click.group()
@@ -52,7 +53,7 @@ def start(name, prefix, config, settings):
 
     output_dir = get_output_dir(name=name, prefix=prefix)
     if os.path.exists(output_dir):
-        raise ValueError("Cluster output path already exists")
+        raise DaskYarnError("Cluster output path already exists")
 
     pid = start_daemon(output_dir)
 
@@ -139,7 +140,7 @@ def info(name, prefix):
     else:
         output_dir = get_output_dir(name=name, prefix=prefix)
         if not os.path.exists(output_dir):
-            raise ValueError("Cluster folder not found at %r" % output_dir)
+            raise DaskYarnError("No cluster folder found at %r" % output_dir)
         clusters = [output_dir]
 
     if clusters:
@@ -181,6 +182,9 @@ def main():
     # run main
     try:
         cli()
+    except DaskYarnError as e:
+        click.echo("DaskYarnError: %s" % e, err=True)
+        sys.exit(1)
     except Exception:
         click.echo(traceback.format_exc(), err=True)
         sys.exit(1)

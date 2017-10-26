@@ -7,6 +7,12 @@ import sys
 PY2 = sys.version_info.major == 2
 
 
+class DaskYarnError(Exception):
+    """User-facing exception for dask-yarn. These exceptions here are reported
+    nicely in the cli."""
+    pass
+
+
 def asciitable(columns, rows):
     """Formats an ascii table for given columns and rows.
 
@@ -36,16 +42,16 @@ def parse_settings(settings):
         try:
             k, v = s.split('=')
         except:
-            raise ValueError("Unable to parse setting: %r" % s)
+            raise DaskYarnError("Unable to parse setting: %r" % s)
         out[k.strip()] = v.strip()
     return out
 
 
 def get_output_dir(name=None, prefix=None):
     if name is not None and prefix is not None:
-        raise ValueError("Cannot specify both ``name`` and ``prefix``")
+        raise DaskYarnError("Cannot specify both ``name`` and ``prefix``")
     elif name is None and prefix is None:
-        raise ValueError("Must specify either ``name`` or ``prefix``")
+        raise DaskYarnError("Must specify either ``name`` or ``prefix``")
     elif prefix:
         output_dir = prefix
     else:
