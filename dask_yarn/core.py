@@ -161,6 +161,7 @@ def setup_cluster(config):
                         virtual_cores=config['worker.cpus'],
                         memory=config['worker.memory'],
                         queue=config['yarn.queue'],
+                        app_name='dask',
                         checks=False)
 
     # Add a few missing fields to config before writing to disk
