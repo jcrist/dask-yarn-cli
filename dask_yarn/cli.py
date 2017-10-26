@@ -104,7 +104,7 @@ def stop(name, prefix):
     """Stop a dask cluster."""
     output_dir = get_output_dir(name=name, prefix=prefix)
     client = Client(output_dir)
-    click.echo("Shutting down daemon...")
+    click.echo("Shutting down...")
     resp = client.shutdown()
     if resp['status'] == 'ok':
         click.echo("OK")
