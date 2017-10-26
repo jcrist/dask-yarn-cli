@@ -20,6 +20,14 @@ except ImportError:
 from .config import dump_config
 
 
+if sys.version_info.major < 3:
+    def to_bytes(x):
+        return x
+else:
+    def to_bytes(x):
+        return bytes(x, 'utf-8')
+
+
 def _daemon(cache_dir):
     sys.exit(Server(cache_dir).run_until_shutdown())
 
@@ -74,7 +82,7 @@ class Server(object):
             op = 'badmsg'
 
         resp = getattr(self, 'handle_%s' % op, self.handle_badmsg)(msg)
-        conn.sendall(bytes(json.dumps(resp) + '\n', 'utf-8'))
+        conn.sendall(to_bytes(json.dumps(resp) + '\n'))
         # Close the connection
         try:
             conn.shutdown(socket.SHUT_WR)
@@ -83,7 +91,11 @@ class Server(object):
         conn.close()
 
     def handle_badmsg(self, msg):
-        return {"status": "error"}
+        if self.knit is None:
+            self._should_shutdown = True
+        return {"status": "error",
+                "exception": "Badmsg: %s" % str(msg),
+                "traceback": ""}
 
     def handle_shutdown(self, msg):
         self._should_shutdown = True
@@ -184,7 +196,7 @@ class Client(object):
 
     def _sendmsg(self, msg):
         msg = json.dumps(msg)
-        self.sock.sendall(bytes(msg + '\n', 'utf-8'))
+        self.sock.sendall(to_bytes(msg + '\n'))
 
     def _recvmsg(self):
         return json.loads(self.sock.makefile().readline())
