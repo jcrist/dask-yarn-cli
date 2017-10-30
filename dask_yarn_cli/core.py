@@ -22,9 +22,9 @@ from .config import dump_config
 from .utils import DaskYarnError
 
 
-if LooseVersion(_knit_version) < '0.2.3':
-    raise DaskYarnError("dask-yarn requires knit >= 0.2.3. Please upgrade "
-                        "your knit install")
+if LooseVersion(_knit_version) == '0.2.3':
+    raise DaskYarnError("Knit version 0.2.3 is broken, please downgrade to "
+                        "0.2.2")
 
 
 if sys.version_info.major < 3:
@@ -154,25 +154,20 @@ def setup_cluster(config):
                 rm=config.get('yarn.host'),
                 rm_port=config.get('yarn.port'))
 
-    env_name_zip = os.path.basename(config['cluster.env'])
-    env_name = os.path.splitext(env_name_zip)[0]
-    env_location = os.path.join(env_name_zip, env_name)
-    command = ('{env_location}/bin/python {env_location}/bin/dask-worker '
+    command = ('$PYTHON_BIN $CONDA_PREFIX/bin/dask-worker '
                '--nprocs={nprocs:d} '
                '--nthreads={nthreads:d} '
                '--memory-limit={memory_limit:d} '
-               '--no-bokeh '
                '{scheduler_address} '
                '> /tmp/worker-log.out '
                '2> /tmp/worker-log.err').format(
-                    env_location=env_location,
                     nprocs=config['worker.processes'],
                     nthreads=config['worker.threads_per_process'],
                     memory_limit=int(config['worker.memory'] * 1e6),
                     scheduler_address=cluster.scheduler.address)
 
     app_id = knit.start(command,
-                        files=[config['cluster.env']],
+                        env=config['cluster.env'],
                         num_containers=config['cluster.count'],
                         virtual_cores=config['worker.cpus'],
                         memory=config['worker.memory'],

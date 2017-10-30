@@ -2,7 +2,7 @@ from setuptools import setup
 
 requirements = ['click',
                 'distributed',
-                'knit >= 0.2.3']
+                'knit']
 
 setup(name='dask-yarn-cli',
       version='0.0.1',
