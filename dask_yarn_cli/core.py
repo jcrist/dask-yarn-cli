@@ -38,7 +38,7 @@ def start_daemon(cache_dir):
     else:
         null = open(os.devnull, 'wb')
     null = None
-    script = 'from dask_yarn.core import _daemon;_daemon(%r)' % cache_dir
+    script = 'from dask_yarn_cli.core import _daemon;_daemon(%r)' % cache_dir
 
     pid = subprocess.Popen([sys.executable, '-c', script],
                            stdout=null, stderr=null).pid
