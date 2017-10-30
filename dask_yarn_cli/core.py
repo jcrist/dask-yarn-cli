@@ -127,8 +127,12 @@ class Server(object):
 
 
 def setup_cluster(config):
+    if 'scheduler.ip' not in config:
+        scheduler_ip = socket.gethostbyname(socket.gethostname())
+    else:
+        scheduler_ip = config['scheduler.ip']
     cluster = LocalCluster(n_workers=0,
-                           ip=config.get('scheduler.ip'),
+                           ip=scheduler_ip,
                            port=config['scheduler.port'],
                            diagnostics_port=config['scheduler.bokeh_port'])
 
