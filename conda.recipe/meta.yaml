@@ -1,0 +1,37 @@
+package:
+  name: dask-yarn-cli
+  version: 0.0.1
+
+source:
+  path: ../
+
+extra:
+  channels:
+    - jcrist
+    - conda-forge
+
+build:
+  number: 1
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+  noarch: python
+
+requirements:
+  build:
+    - setuptools
+    - python
+  run:
+    - python
+    - click
+    - distributed
+    - knit 0.2.2 patched*
+
+test:
+  imports:
+    - dask_yarn_cli
+
+about:
+  home: https://github.com/jcrist/dask-yarn-cli
+  license: BSD 3-Clause
+  license-family: BSD
+  license_file: LICENSE.txt
+  summary: A command line tool for creating dask clusters on yarn
