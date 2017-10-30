@@ -1,7 +1,8 @@
-dask-yarn
-=========
+dask-yarn-cli
+=============
 
-``dask-yarn`` is a command line tool for creating dask clusters on yarn.
+This package provides an experimental ``dask-yarn`` command line tool for
+creating dask clusters on yarn.
 
 Commands
 --------
