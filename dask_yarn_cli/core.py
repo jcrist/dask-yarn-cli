@@ -9,8 +9,9 @@ import subprocess
 import sys
 import time
 import traceback
+from distutils.version import LooseVersion
 
-from knit import Knit
+from knit import Knit, __version__ as _knit_version
 from distributed import LocalCluster
 try:
     import hdfs3
@@ -18,6 +19,12 @@ except ImportError:
     hdfs3 = None
 
 from .config import dump_config
+from .utils import DaskYarnError
+
+
+if LooseVersion(_knit_version) < '0.2.3':
+    raise DaskYarnError("dask-yarn requires knit >= 0.2.3. Please upgrade "
+                        "your knit install")
 
 
 if sys.version_info.major < 3:
